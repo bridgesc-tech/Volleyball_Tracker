@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Volleyball Tracker">
+    <meta name="theme-color" content="#4169E1">
+    <base href="./">
+    <title>Volleyball Tracker</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏐</text></svg>">
+    <link rel="manifest" href="./manifest.json" onerror="this.remove()">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="apple-touch-icon" href="./icon-192.png" onerror="this.remove()">
+    
+    <!-- Firebase SDKs (only loads if not file:// protocol) -->
+    <script>
+        if (window.location.protocol !== 'file:') {
+            // Load Firebase App first
+            const script1 = document.createElement('script');
+            script1.src = 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js';
+            
+            script1.onload = () => {
+                // Once Firebase App is loaded, load Firestore
+                const script2 = document.createElement('script');
+                script2.src = 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js';
+                
+                script2.onload = () => {
+                    // Once both are loaded, load the config
+                    const configScript = document.createElement('script');
+                    configScript.src = 'firebase-config.js';
+                    document.head.appendChild(configScript);
+                };
+                document.head.appendChild(script2);
+            };
+            document.head.appendChild(script1);
+        }
+    </script>
+</head>
+<body>
+    <!-- Update Notification Banner -->
+    <div id="updateBanner" class="update-banner hidden">
+        <div class="update-banner-content">
+            <span class="update-banner-text">🔄 New version available! Click to update.</span>
+            <div class="update-banner-actions">
+                <button id="updateNowBtn" class="btn btn-primary" style="padding: 6px 12px; font-size: 13px; margin-right: 8px;">Update Now</button>
+                <button id="updateLaterBtn" class="btn btn-secondary" style="padding: 6px 12px; font-size: 13px;">Later</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="container">
+        <header>
+            <div style="position: relative; width: 100%;">
+                <div id="syncStatus" class="sync-status-top-left"></div>
+                <button id="settingsBtn" class="settings-btn" title="Settings" aria-label="Settings">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M12 1v6m0 6v6M5.64 5.64l4.24 4.24m4.24 4.24l4.24 4.24M1 12h6m6 0h6M5.64 18.36l4.24-4.24m4.24-4.24l4.24-4.24"></path>
+                    </svg>
+                </button>
+            </div>
+            <h1>🏐 Volleyball Tracker</h1>
+            <div id="gameNameDisplay" class="game-name-header"></div>
+            <button id="teamSwitchBtn" class="team-switch-btn">Home Team</button>
+        </header>
+
+        <!-- View Toggle -->
+        <div class="view-toggle">
+            <button id="courtViewBtn" class="view-btn active">Court View</button>
+            <button id="playersViewBtn" class="view-btn">Players</button>
+            <button id="statsViewBtn" class="view-btn">Stats</button>
+            <div class="set-selector" style="display: flex; align-items: center; gap: 8px; margin-left: auto;">
+                <span style="color: white; font-weight: 600; font-size: 14px;">Set:</span>
+                <button class="set-btn" data-set="1" id="set1Btn">1</button>
+                <button class="set-btn" data-set="2" id="set2Btn">2</button>
+                <button class="set-btn" data-set="3" id="set3Btn">3</button>
+                <button class="set-btn" data-set="4" id="set4Btn">4</button>
+                <button class="set-btn" data-set="5" id="set5Btn">5</button>
+            </div>
+        </div>
+
+        <!-- Court View -->
+        <div id="courtView" class="court-container">
+            <!-- Shot Result Filter -->
+            <div class="shot-result-filter" id="shotResultFilter">
+                <span class="filter-label">Show:</span>
+                <label class="filter-checkbox">
+                    <input type="checkbox" class="result-filter-checkbox" data-result-type="success" checked>
+                    <span>Success</span>
+                </label>
+                <label class="filter-checkbox">
+                    <input type="checkbox" class="result-filter-checkbox" data-result-type="error" checked>
+                    <span>Errors</span>
+                </label>
+                <label class="filter-checkbox">
+                    <input type="checkbox" class="result-filter-checkbox" data-result-type="blocked" checked>
+                    <span>Blocked</span>
+                </label>
+                <label class="filter-checkbox">
+                    <input type="checkbox" class="result-filter-checkbox" data-result-type="other" checked>
+                    <span>Other</span>
+                </label>
+            </div>
+            
+            <div class="court-layout">
+                <div class="court-wrapper">
+                <svg id="volleyballCourt" class="volleyball-court" viewBox="0 0 200 300" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Court Background (Orange-Brown) - 18m x 9m court, rotated vertically -->
+                    <!-- Court: 9m wide x 18m long -->
+                    <rect x="20" y="15" width="160" height="270" fill="#D2691E" class="court-floor"/>
+                    
+                    <!-- Free Zone (Green) - Only around the court edges -->
+                    <!-- Top free zone -->
+                    <rect x="0" y="0" width="200" height="15" fill="#90EE90"/>
+                    <!-- Bottom free zone -->
+                    <rect x="0" y="285" width="200" height="15" fill="#90EE90"/>
+                    <!-- Left free zone -->
+                    <rect x="0" y="15" width="20" height="270" fill="#90EE90"/>
+                    <!-- Right free zone -->
+                    <rect x="180" y="15" width="20" height="270" fill="#90EE90"/>
+                    
+                    <!-- Court Boundary Lines (White) - Thinner for cleaner look -->
+                    <!-- Top end line -->
+                    <line x1="20" y1="15" x2="180" y2="15" stroke="#FFFFFF" stroke-width="1.5"/>
+                    <!-- Bottom end line -->
+                    <line x1="20" y1="285" x2="180" y2="285" stroke="#FFFFFF" stroke-width="1.5"/>
+                    <!-- Left sideline -->
+                    <line x1="20" y1="15" x2="20" y2="285" stroke="#FFFFFF" stroke-width="1.5"/>
+                    <!-- Right sideline -->
+                    <line x1="180" y1="15" x2="180" y2="285" stroke="#FFFFFF" stroke-width="1.5"/>
+                    
+                    <!-- Center Line (Net) - Divides court into two 9m x 9m halves -->
+                    <line x1="20" y1="150" x2="180" y2="150" stroke="#FFD700" stroke-width="4"/>
+                    
+                    <!-- Attack Lines (3 meters from center line on each side) -->
+                    <!-- Top side attack line (3m from center = 3/9 of 270px = 90px from center) -->
+                    <!-- Court is 270px tall, center at 150, so 3m = 3/9 * 135 = 45px from center line -->
+                    <line x1="20" y1="105" x2="180" y2="105" stroke="#FFFFFF" stroke-width="1.5"/>
+                    <!-- Bottom side attack line (3m from center) -->
+                    <line x1="20" y1="195" x2="180" y2="195" stroke="#FFFFFF" stroke-width="1.5"/>
+                    
+                    <!-- Shot Markers will be dynamically added here -->
+                </svg>
+                
+                <!-- Player Selection Overlay -->
+                <div id="playerSelectOverlay" class="player-select-overlay" style="display: none;">
+                    <div class="player-select-content">
+                        <h3>Select Player</h3>
+                        <div id="playerSelectList" class="player-select-list">
+                            <!-- Players will be added here -->
+                        </div>
+                        <button class="btn btn-secondary" onclick="app.closePlayerSelect(true)">Cancel</button>
+                    </div>
+                </div>
+                
+                <!-- Shot Tooltip -->
+                <div id="shotTooltip" class="shot-tooltip" style="display: none;"></div>
+                </div>
+                
+                <!-- Player Filter Bar -->
+                <div class="player-filter-bar" id="playerFilterBar">
+                    <button class="player-filter-btn active" data-player-id="all" id="filterAllBtn">All Players</button>
+                    <!-- Player filter buttons will be dynamically added here -->
+                </div>
+            </div>
+            
+            <div class="court-controls">
+                <button id="clearCourtBtn" class="btn btn-secondary">Clear All Shots</button>
+            </div>
+        </div>
+
+        <!-- Players View -->
+        <div id="playersView" style="display: none;">
+            <div class="add-player-section">
+                <h2>Add Player</h2>
+                <div class="add-player-inputs">
+                    <input type="text" id="playerNameInput" class="add-player-input" placeholder="Name" maxlength="30">
+                    <input type="number" id="playerNumberInput" class="add-player-input" placeholder="Number" min="0" max="99">
+                    <button id="addPlayerBtn" class="btn btn-primary">Add</button>
+                </div>
+            </div>
+
+            <div class="players-list" id="playersList">
+                <!-- Player cards will be dynamically added here -->
+            </div>
+
+            <div class="empty-state" id="emptyState">
+                <p>👤 No players added yet.</p>
+                <p>Add a player above to start tracking!</p>
+            </div>
+        </div>
+
+        <!-- Stats View -->
+        <div id="statsView" style="display: none;">
+            <div class="stats-container" id="statsContainer">
+                <!-- Stats will be displayed here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Shot Details Modal -->
+    <div class="modal" id="shotDetailsModal">
+        <div class="modal-content">
+            <span class="close" id="closeShotDetailsModal">&times;</span>
+            <h2>Shot Details</h2>
+            <div class="modal-body">
+                <div class="player-name-modal" id="shotDetailsPlayerNumber"></div>
+                <div class="shot-details-info" id="shotDetailsInfo">
+                    <!-- Shot info will be displayed here -->
+                </div>
+                <button id="deleteShotBtn" class="btn btn-danger" style="width: 100%; margin-top: 20px;">Delete Shot</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Shot Tracking Modal -->
+    <div class="modal" id="shotModal">
+        <div class="modal-content">
+            <span class="close" id="closeModal">&times;</span>
+            <h2 id="modalTitle">Record Shot</h2>
+            <div class="modal-body">
+                <div class="player-name-modal" id="modalPlayerNumber"></div>
+                
+                <div class="shot-controls">
+                    <div class="shot-type-section">
+                        <h3>Shot Type</h3>
+                        <div class="shot-type-buttons">
+                            <button class="shot-type-btn" data-type="serve">🎯 Serve</button>
+                            <button class="shot-type-btn" data-type="spike">⚡ Spike</button>
+                            <button class="shot-type-btn" data-type="block">🛡️ Block</button>
+                            <button class="shot-type-btn" data-type="dig">🤲 Dig</button>
+                            <button class="shot-type-btn" data-type="set">👆 Set</button>
+                            <button class="shot-type-btn" data-type="attack">💥 Attack</button>
+                        </div>
+                    </div>
+
+                    <div class="shot-result-section" id="shotResultSection" style="display: none;">
+                        <h3>Result</h3>
+                        <div class="shot-result-buttons" id="shotResultButtons">
+                            <!-- Result buttons will be dynamically added based on shot type -->
+                        </div>
+                    </div>
+                </div>
+
+                <button id="recordShotBtn" class="btn btn-primary record-shot-btn" style="display: none; width: 100%; margin-top: 20px;">Record Shot</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Player Stats Modal -->
+    <div class="modal" id="playerStatsModal">
+        <div class="modal-content" style="max-width: 550px; padding: 16px;">
+            <span class="close" id="closePlayerStatsModal">&times;</span>
+            <h2 style="font-size: 20px; margin-bottom: 12px;">Player Statistics</h2>
+            <div class="modal-body" style="margin-top: 12px;">
+                <div class="player-name-modal" id="playerStatsPlayerNumber" style="font-size: 18px; padding: 8px; margin-bottom: 12px;"></div>
+                <div id="playerStatsContent">
+                    <!-- Detailed stats will be displayed here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal" id="settingsModal" style="display: none;">
+        <div class="modal-content" style="max-width: 500px;">
+            <span class="close" id="closeSettingsModal">&times;</span>
+            <h2 style="margin-bottom: 20px;">Settings</h2>
+            <div class="modal-body">
+                <div class="settings-section" style="border-top: 1px solid var(--border-color); padding-top: 15px; margin-top: 20px;">
+                    <h3 style="margin-bottom: 15px; font-size: 16px; color: var(--text-primary);">App Updates</h3>
+                    <button id="checkUpdateBtn" class="btn btn-primary" style="width: 100%; margin-top: 10px;">
+                        <span id="updateBtnText">🔄 Check for Updates</span>
+                    </button>
+                    <p class="settings-help-text" id="updateStatusText" style="margin-top: 8px; font-size: 12px; color: var(--text-secondary); min-height: 20px;"></p>
+                </div>
+                <div class="settings-section" style="border-top: 1px solid var(--border-color); padding-top: 15px; margin-top: 20px;">
+                    <p class="settings-version-text" id="versionText" style="font-size: 12px; color: var(--text-secondary); text-align: center; margin: 0; font-style: italic;">App Version: Loading...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
+
