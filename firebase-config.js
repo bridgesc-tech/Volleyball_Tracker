@@ -18,12 +18,26 @@ const firebaseConfig = {
 // Using compat mode - no import statements needed
 let db = null;
 
-function initializeFirebaseIfReady() {
+async function initializeFirebaseIfReady() {
     if (typeof firebase !== 'undefined' && window.location.protocol !== 'file:') {
         try {
             console.log('Initializing Firebase...');
             firebase.initializeApp(firebaseConfig);
             db = firebase.firestore();
+            
+            // Authenticate with anonymous auth (required for Firestore security rules)
+            const auth = firebase.auth();
+            try {
+                const userCredential = await auth.signInAnonymously();
+                console.log('Authenticated anonymously:', userCredential.user.uid);
+            } catch (authError) {
+                console.error('Error authenticating:', authError);
+                const currentUser = auth.currentUser;
+                if (!currentUser) {
+                    console.warn('Could not authenticate with Firebase. Some features may not work.');
+                }
+            }
+            
             console.log('Firebase initialized successfully, db:', db);
             // Expose db globally
             window.db = db;
